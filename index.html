@@ -140,7 +140,7 @@
         const wireframeMat = new THREE.MeshBasicMaterial({ color: 0x00aaff, wireframe: true, transparent: true, opacity: 0.2 });
 
         loader.load(
-            'lungs_model.glb', // Asegúrate de que este archivo esté en la misma carpeta
+            './lungs_model.glb', // Asegúrate de que este archivo esté en la misma carpeta
             function (gltf) {
                 gltf.scene.traverse(function (child) {
                     if (child.isMesh) {
