@@ -2,50 +2,46 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Simulador EPOC 3D Realista - Three.js</title>
+    <title>Simulador EPOC Procedural - Three.js</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Segoe UI', sans-serif; color: white; }
+        body { margin: 0; overflow: hidden; background-color: #020205; font-family: 'Segoe UI', sans-serif; color: white; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
+        
+        /* UI Estilo Videojuego */
         #ui-layer {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 20, 40, 0.8);
-            border: 1px solid #00aaff;
+            top: 30px;
+            left: 30px;
+            width: 280px;
+            background: rgba(10, 15, 20, 0.85);
+            border-left: 4px solid #00ccff;
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 20px rgba(0, 170, 255, 0.2);
-            /* pointer-events: none;  // Ahora queremos que la UI sea interactiva */
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 30px rgba(0, 204, 255, 0.15);
+            user-select: none;
         }
-        h1 { margin: 0 0 10px 0; font-size: 1.2rem; color: #00aaff; text-transform: uppercase; letter-spacing: 2px; }
-        .stat { font-size: 0.9rem; margin-bottom: 5px; color: #ccc; }
-        .value { color: #00ffaa; font-weight: bold; }
-        .legend { font-size: 0.7rem; margin-top: 10px; color: #555; }
-        .control-panel {
-            margin-top: 20px;
-            padding-top: 15px;
-            border-top: 1px solid #005577;
+        h1 { margin: 0 0 15px 0; font-size: 1.1rem; color: #00ccff; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; color: #aaa; }
+        .value { color: white; font-weight: bold; font-family: monospace; font-size: 1rem; }
+        .status-box {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #333;
+            text-align: center;
+            font-weight: bold;
+            border-radius: 4px;
+            transition: all 0.3s;
         }
-        .control-panel label { display: block; margin-bottom: 5px; color: #00aaff; font-size: 0.8rem; }
-        .control-panel input[type="range"] { width: 100%; -webkit-appearance: none; height: 5px; background: #003355; border-radius: 5px; outline: none; }
-        .control-panel input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: #00aaff;
-            cursor: pointer;
-            box-shadow: 0 0 5px rgba(0, 170, 255, 0.5);
-        }
-        .control-panel input[type="range"]::-moz-range-thumb {
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: #00aaff;
-            cursor: pointer;
-            box-shadow: 0 0 5px rgba(0, 170, 255, 0.5);
-        }
+        
+        .control-group { margin-top: 25px; border-top: 1px solid #333; padding-top: 15px; }
+        label { display: block; font-size: 0.75rem; color: #00ccff; margin-bottom: 5px; text-transform: uppercase; }
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: #00ccff; }
+        
+        /* Decoración UI */
+        .corner { position: absolute; width: 10px; height: 10px; border: 2px solid #00ccff; }
+        .tr { top: -2px; right: -2px; border-bottom: none; border-left: none; }
+        .bl { bottom: -2px; left: -2px; border-top: none; border-right: none; }
     </style>
     <script type="importmap">
         {
@@ -59,17 +55,24 @@
 <body>
 
     <div id="ui-layer">
-        <h1>Simulador Espirometría: EPOC</h1>
-        <div class="stat">Estado: <span id="status-text" class="value">Cargando...</span></div>
-        <div class="stat">Volumen Pulmonar: <span id="vol-text">0</span> L</div>
-        <div class="stat">Flujo Aéreo: <span id="flow-text">0</span> L/s</div>
-        <p class="legend">Mecánica de EPOC: Inspiración dificultosa, Espiración prolongada, Atrapamiento aéreo.</p>
+        <div class="corner tr"></div><div class="corner bl"></div>
+        <h1>Monitor Pulmonar</h1>
+        
+        <div class="stat-row"><span>Volumen:</span> <span id="vol-text" class="value">0.00 L</span></div>
+        <div class="stat-row"><span>Flujo:</span> <span id="flow-text" class="value">0.00 L/s</span></div>
+        <div class="stat-row"><span>SatO2 (Sim):</span> <span id="sat-text" class="value">98%</span></div>
+        
+        <div id="status-box" class="status-box">INICIANDO...</div>
 
-        <div class="control-panel">
-            <label for="breathing-speed">Velocidad de Respiración:</label>
-            <input type="range" id="breathing-speed" min="0.5" max="10" step="0.1" value="6">
-            <label for="epoc-severity">Severidad EPOC:</label>
-            <input type="range" id="epoc-severity" min="0.1" max="1.5" step="0.1" value="1.0">
+        <div class="control-group">
+            <label>Severidad Obstrucción (EPOC)</label>
+            <input type="range" id="severity" min="0" max="1" step="0.1" value="0.8">
+            
+            <label style="margin-top:10px">Frecuencia Respiratoria</label>
+            <input type="range" id="speed" min="0.2" max="2.0" step="0.1" value="1.0">
+        </div>
+        <div style="margin-top:15px; font-size: 0.7rem; color: #555;">
+            Renderizado Procedural • No external assets
         </div>
     </div>
 
@@ -78,348 +81,314 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // --- CONFIGURACIÓN ESCENA ---
+        // --- 1. SETUP BÁSICO ---
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x020205, 0.05); // Niebla más oscura
+        scene.fog = new THREE.FogExp2(0x020205, 0.02);
         
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 2, 8);
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 1, 12);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // alpha para fondo transparente si quieres
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.toneMapping = THREE.ACESFilmicToneMapping; // Más realista
-        renderer.toneMappingExposure = 1.0;
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ReinhardToneMapping;
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-        // --- LUCES ---
-        scene.add(new THREE.AmbientLight(0x404040, 0.8)); // Luz ambiental suave
-        
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        directionalLight.position.set(5, 10, 5);
-        directionalLight.castShadow = true;
-        scene.add(directionalLight);
+        // --- 2. GENERADOR DE TEXTURA PROCEDURAL (Para simular tejido) ---
+        function createOrganicTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; 
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            
+            // Fondo oscuro
+            ctx.fillStyle = '#200000';
+            ctx.fillRect(0, 0, 512, 512);
+            
+            // Ruido para alveolos
+            for(let i=0; i<5000; i++) {
+                const x = Math.random() * 512;
+                const y = Math.random() * 512;
+                const size = Math.random() * 2 + 1;
+                ctx.fillStyle = `rgba(255, 100, 100, ${Math.random() * 0.1})`;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI*2);
+                ctx.fill();
+            }
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
+        }
 
-        const fillLight = new THREE.DirectionalLight(0xaabbff, 0.5);
-        fillLight.position.set(-5, -10, -5);
-        scene.add(fillLight);
+        const lungTexture = createOrganicTexture();
 
-        // Luz puntual de color para destacar
-        const pointLight1 = new THREE.PointLight(0x00aaff, 3, 20);
-        pointLight1.position.set(2, 2, 3);
-        scene.add(pointLight1);
-        const pointLight2 = new THREE.PointLight(0xff3366, 2, 20);
-        pointLight2.position.set(-2, -2, -3);
-        scene.add(pointLight2);
+        // --- 3. CONSTRUCCIÓN PROCEDURAL DE PULMONES ---
+        const lungsGroup = new THREE.Group();
+        scene.add(lungsGroup);
 
-
-        // --- CARGA DEL MODELO 3D (Pulmones) ---
-        const loader = new GLTFLoader();
-        let lungsModel = null;
-        let originalPositions = []; // Para la deformación
-
-        // Material PBR simulando tejido translúcido
-        const realisticLungMaterial = new THREE.MeshStandardMaterial({
-            color: 0xaa0000,           // Color base (rojo oscuro)
-            roughness: 0.7,            // Superficie un poco rugosa
-            metalness: 0.0,            // No metálico
-            transparent: true,         // Permite translucidez
-            opacity: 0.8,              // Opacidad general
-            side: THREE.DoubleSide,    // Renderizar ambos lados de las caras
-            envMapIntensity: 0.5,      // Reflejos del mapa de entorno
-            emissive: 0x550000,        // Color de emisión para el brillo interno
-            emissiveIntensity: 0.5     // Intensidad del brillo interno
+        // Material "Holograma Orgánico"
+        const membraneMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0xff3333,        // Color base rojo sangre
+            emissive: 0x550000,     // Brillo interno oscuro
+            roughness: 0.6,
+            metalness: 0.1,
+            transmission: 0.4,      // Translucidez (importante para ver el interior)
+            thickness: 1.0,
+            transparent: true,
+            opacity: 0.8,
+            map: lungTexture,       // Nuestra textura generada
+            side: THREE.DoubleSide
         });
 
-        // Usaremos este para el wireframe si lo queremos
-        const wireframeMat = new THREE.MeshBasicMaterial({ color: 0x00aaff, wireframe: true, transparent: true, opacity: 0.2 });
+        // Función para crear un lóbulo (Esfera deformada)
+        function createLobe(scaleVec, posVec, rotationZ) {
+            const geo = new THREE.SphereGeometry(1, 64, 64);
+            const mesh = new THREE.Mesh(geo, membraneMaterial);
+            mesh.scale.copy(scaleVec);
+            mesh.position.copy(posVec);
+            mesh.rotation.z = rotationZ;
+            mesh.castShadow = true;
+            return mesh;
+        }
 
-        loader.load(
-            './lungs_model.glb', // Asegúrate de que este archivo esté en la misma carpeta
-            function (gltf) {
-                gltf.scene.traverse(function (child) {
-                    if (child.isMesh) {
-                        child.material = realisticLungMaterial.clone(); // Clona para que cada mesh pueda tener variaciones si es necesario
-                        child.material.color.set(0xaa0000); // Color base
-                        
-                        // Guardar las posiciones originales para la deformación
-                        const positions = child.geometry.attributes.position.array;
-                        originalPositions.push({ mesh: child, positions: Array.from(positions) });
-                        
-                        child.castShadow = true;
-                        child.receiveShadow = true;
+        // --- PULMÓN DERECHO (3 Lóbulos simulados) ---
+        const rightLung = new THREE.Group();
+        // Lóbulo superior/medio fusionados
+        rightLung.add(createLobe(new THREE.Vector3(1.2, 2.0, 1.2), new THREE.Vector3(0, 0.5, 0), -0.1)); 
+        // Base más ancha
+        rightLung.add(createLobe(new THREE.Vector3(1.3, 1.5, 1.3), new THREE.Vector3(0.2, -1.0, 0.1), 0)); 
+        rightLung.position.x = 1.4;
+        lungsGroup.add(rightLung);
 
-                        // También podrías añadir un wireframe si quieres un look híbrido
-                        // const wire = new THREE.Mesh(child.geometry, wireframeMat);
-                        // child.add(wire);
-                    }
-                });
-                
-                lungsModel = gltf.scene;
-                lungsModel.scale.set(0.01, 0.01, 0.01); // Ajusta la escala según tu modelo
-                lungsModel.position.set(0, 0, 0); // Posición inicial
-                lungsModel.rotation.set(Math.PI / 2, 0, 0); // Orientar correctamente (común en modelos GLTF)
-                scene.add(lungsModel);
-                
-                console.log("Modelo de pulmones cargado:", lungsModel);
-                document.getElementById('status-text').innerText = "Inspiración";
-                uiStatus.style.color = "#00ffaa";
-            },
-            function (xhr) {
-                console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-                document.getElementById('status-text').innerText = `Cargando... ${Math.round(xhr.loaded / xhr.total * 100)}%`;
-            },
-            function (error) {
-                console.error('Error loading GLTF model', error);
-                document.getElementById('status-text').innerText = "ERROR al cargar modelo!";
-                uiStatus.style.color = "#ff0000";
-            }
-        );
+        // --- PULMÓN IZQUIERDO (2 Lóbulos + Hueco cardíaco) ---
+        const leftLung = new THREE.Group();
+        // Lóbulo superior
+        leftLung.add(createLobe(new THREE.Vector3(1.15, 1.9, 1.15), new THREE.Vector3(0, 0.6, 0), 0.1));
+        // Lóbulo inferior (ligeramente desplazado por el corazón)
+        leftLung.add(createLobe(new THREE.Vector3(1.2, 1.4, 1.2), new THREE.Vector3(-0.1, -1.0, 0), 0));
+        leftLung.position.x = -1.4;
+        lungsGroup.add(leftLung);
+
+        // --- TRÁQUEA ---
+        const tracheaGeo = new THREE.CylinderGeometry(0.4, 0.4, 2.5, 16);
+        const trachea = new THREE.Mesh(tracheaGeo, membraneMaterial);
+        trachea.position.y = 3.0;
+        lungsGroup.add(trachea);
+
+        // --- 4. ÁRBOL BRONQUIAL FRACTAL (GENERATIVO) ---
+        // Esto crea las "venas" brillantes internas
+        const bronchiMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.6 });
+        
+        function createFractalBranch(startPoint, direction, length, depth) {
+            if (depth === 0) return null;
+
+            const endPoint = new THREE.Vector3().copy(startPoint).add(direction.clone().multiplyScalar(length));
+            const points = [startPoint, endPoint];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const line = new THREE.Line(geometry, bronchiMaterial);
+            
+            const branchGroup = new THREE.Group();
+            branchGroup.add(line);
+
+            // Ramificación
+            const nextLength = length * 0.75;
+            
+            // Rama A
+            const dirA = direction.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), 0.5).applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.random());
+            const branchA = createFractalBranch(endPoint, dirA, nextLength, depth - 1);
+            if(branchA) branchGroup.add(branchA);
+
+            // Rama B
+            const dirB = direction.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), -0.5).applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.random());
+            const branchB = createFractalBranch(endPoint, dirB, nextLength, depth - 1);
+            if(branchB) branchGroup.add(branchB);
+
+            return branchGroup;
+        }
+
+        // Generar árbol derecho e izquierdo
+        const treeRight = createFractalBranch(new THREE.Vector3(0, 2, 0), new THREE.Vector3(0.5, -1, 0).normalize(), 1.2, 5);
+        if(treeRight) { treeRight.position.x = 0; lungsGroup.add(treeRight); }
+        
+        const treeLeft = createFractalBranch(new THREE.Vector3(0, 2, 0), new THREE.Vector3(-0.5, -1, 0).normalize(), 1.2, 5);
+        if(treeLeft) { treeLeft.position.x = 0; lungsGroup.add(treeLeft); }
 
 
-        // --- GRÁFICO FLUJO/VOLUMEN EN EL MUNDO 3D ---
+        // --- 5. GRÁFICO FLOTANTE 3D (Holograma lateral) ---
         const graphGroup = new THREE.Group();
-        graphGroup.position.set(3.5, 0, 0); // Al lado de los pulmones
+        graphGroup.position.set(5, 0, 0);
+        graphGroup.rotation.y = -0.3;
         scene.add(graphGroup);
 
-        // Ejes
-        const axesHelper = new THREE.AxesHelper(3);
-        axesHelper.material.depthTest = false; // Para que los ejes no se oculten
-        graphGroup.add(axesHelper);
+        // Marco del gráfico
+        const gridHelper = new THREE.GridHelper(6, 10, 0x005588, 0x002244);
+        gridHelper.rotation.x = Math.PI / 2;
+        gridHelper.position.set(1.5, 1.5, 0);
+        graphGroup.add(gridHelper);
 
-        // Etiquetas de los ejes
-        function createText(message, position, color = 0xeeeeee) {
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            context.font = 'Bold 40px Arial';
-            context.fillStyle = '#'+new THREE.Color(color).getHexString();
-            context.fillText(message, 0, 40);
-
-            const texture = new THREE.CanvasTexture(canvas);
-            const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-            const sprite = new THREE.Sprite(spriteMaterial);
-            sprite.scale.set(0.5 * canvas.width / canvas.height, 0.5, 1);
-            sprite.position.copy(position);
-            graphGroup.add(sprite);
-        }
-        createText("Volumen (L)", new THREE.Vector3(3.5, -0.2, 0));
-        createText("Flujo (L/s)", new THREE.Vector3(-0.5, 3.5, 0));
-
-        // Dibujar la curva estática (Referencia)
-        const curvePoints = [];
-        const maxVol = 3.5; // Capacidad vital simulada
-        const maxFlowInsp = -4; // Flujo inspiratorio max
-        const maxFlowExpir = 4; // Flujo espiratorio max
-        
-        // Inspiración (Semicírculo negativo)
-        for(let i = 0; i <= 1; i+=0.02) {
-            let vol = i * maxVol;
-            let flow = -Math.sin(i * Math.PI) * maxFlowInsp;
-            curvePoints.push(new THREE.Vector3(vol, flow, 0));
-        }
-        // Espiración (Pico rápido y caída cóncava - EPOC)
-        for(let i = 1; i >= 0; i-=0.01) {
-            let vol = i * maxVol;
-            let flow;
-            if (i > 0.7) { // Fase inicial de espiración
-                flow = maxFlowExpir * Math.sin(((1-i)/0.3) * (Math.PI/2)); 
-            } else { // Fase tardía con obstrucción
-                flow = maxFlowExpir * Math.pow(i/0.7, 3); // Caída cóncava más pronunciada
-            }
-            curvePoints.push(new THREE.Vector3(vol, flow, 0));
-        }
-
+        const curvePoints = new Array(100).fill(new THREE.Vector3(0,0,0));
         const curveGeo = new THREE.BufferGeometry().setFromPoints(curvePoints);
-        const curveMat = new THREE.LineBasicMaterial({ color: 0x333333, linewidth: 1 });
+        const curveMat = new THREE.LineBasicMaterial({ color: 0xffcc00, linewidth: 2 });
         const curveLine = new THREE.Line(curveGeo, curveMat);
         graphGroup.add(curveLine);
 
-        // Cursor activo (La bola que se mueve)
-        const cursorGeo = new THREE.SphereGeometry(0.1, 16, 16);
-        const cursorMat = new THREE.MeshBasicMaterial({ color: 0x00ffaa, emissive: 0x00ffaa, emissiveIntensity: 1 });
-        const cursor = new THREE.Mesh(cursorGeo, cursorMat);
-        graphGroup.add(cursor);
+        const cursorMesh = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshBasicMaterial({color: 0xffffff}));
+        graphGroup.add(cursorMesh);
+
+
+        // --- 6. ILUMINACIÓN Y POST-PROCESO ---
+        const ambientLight = new THREE.AmbientLight(0x111111);
+        scene.add(ambientLight);
         
-        // Rastro del gráfico (Trail)
-        const trailGeo = new THREE.BufferGeometry();
-        const trailMat = new THREE.LineBasicMaterial({ color: 0x00aaff, linewidth: 3 });
-        const trailLine = new THREE.Line(trailGeo, trailMat);
-        const maxTrailPoints = 500;
-        const positions = new Float32Array(maxTrailPoints * 3);
-        trailGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        trailGeo.setDrawRange(0, 0);
-        graphGroup.add(trailLine);
+        const spotLight = new THREE.SpotLight(0x00ccff, 100);
+        spotLight.position.set(5, 10, 10);
+        spotLight.angle = 0.5;
+        spotLight.penumbra = 1;
+        scene.add(spotLight);
+        
+        const redRimLight = new THREE.PointLight(0xff0000, 10, 20);
+        redRimLight.position.set(-5, 0, -5);
+        scene.add(redRimLight);
 
-
-        // --- POST-PROCESSING (EFECTO WOW) ---
+        // Bloom
         const composer = new EffectComposer(renderer);
-        const renderPass = new RenderPass(scene, camera);
-        composer.addPass(renderPass);
-
+        composer.addPass(new RenderPass(scene, camera));
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        bloomPass.threshold = 0.1;
-        bloomPass.strength = 1.0; 
-        bloomPass.radius = 0.3;
+        bloomPass.threshold = 0.2;
+        bloomPass.strength = 0.8;
+        bloomPass.radius = 0.5;
         composer.addPass(bloomPass);
 
-        // --- LÓGICA DE ANIMACIÓN Y FÍSICA EPOC ---
+
+        // --- 7. FÍSICA Y ANIMACIÓN ---
+        let time = 0;
+        let cyclePosition = 0; // 0 a 1
         
-        let cycleTime = 0;
-        let breathDuration = 6; // Segundos por ciclo completo
-        let currentVol = 0;
-        let currentFlow = 0;
-        
-        // UI Elements
-        const uiStatus = document.getElementById('status-text');
         const uiVol = document.getElementById('vol-text');
         const uiFlow = document.getElementById('flow-text');
-        const breathingSpeedSlider = document.getElementById('breathing-speed');
-        const epocSeveritySlider = document.getElementById('epoc-severity');
-        
-        breathingSpeedSlider.addEventListener('input', (event) => {
-            breathDuration = parseFloat(event.target.value);
-        });
-        
-        let epocSeverity = parseFloat(epocSeveritySlider.value); // Controla la concavidad
-        epocSeveritySlider.addEventListener('input', (event) => {
-            epocSeverity = parseFloat(event.target.value);
-        });
+        const uiStatus = document.getElementById('status-box');
+        const uiSeverity = document.getElementById('severity');
+        const uiSpeed = document.getElementById('speed');
 
-        let trailIndex = 0;
+        const maxVol = 4.0;
+        const trailPositions = [];
 
-        function updatePhysics(dt) {
-            if (!lungsModel) return; // No hacer nada si el modelo no está cargado
-
-            cycleTime += dt / breathDuration;
-            if(cycleTime > 1) {
-                cycleTime = 0;
-                trailIndex = 0;
-                trailGeo.setDrawRange(0, 0);
+        function updatePhysiology(dt) {
+            const severity = parseFloat(uiSeverity.value); // 0 (Sano) a 1 (EPOC Severo)
+            const speedMult = parseFloat(uiSpeed.value);
+            
+            // Ajustar duración ciclo según obstrucción (EPOC respira más rápido superficialmente o lento forzado)
+            const cycleDuration = 5 / speedMult; 
+            
+            cyclePosition += dt / cycleDuration;
+            if (cyclePosition > 1) {
+                cyclePosition = 0;
+                // Reset trail visual
             }
 
-            const inspireEnd = 0.4; // Inspiración 40%, Espiración 60% (más larga por EPOC)
-            let phaseProgress;
+            // Fases
+            const inspRatio = 0.35; // Inspiración corta
+            let vol = 0;
+            let flow = 0;
 
-            if (cycleTime < inspireEnd) {
-                // --- INSPIRACIÓN ---
-                phaseProgress = cycleTime / inspireEnd;
-                currentVol = Math.sin(phaseProgress * Math.PI / 2); // De 0 a 1
-                currentFlow = -Math.cos(phaseProgress * Math.PI / 2) * maxFlowInsp * 0.8; // Flujo negativo
-
+            if (cyclePosition < inspRatio) {
+                // INSPIRACIÓN
                 uiStatus.innerText = "INSPIRACIÓN";
-                uiStatus.style.color = "#00ffaa";
+                uiStatus.style.color = "#00ccff";
+                uiStatus.style.borderColor = "#00ccff";
+                
+                const t = cyclePosition / inspRatio;
+                vol = Math.sin(t * Math.PI / 2); // 0 a 1 suave
+                flow = Math.cos(t * Math.PI / 2) * 5; // Flujo entrada
             } else {
-                // --- ESPIRACIÓN (PATOLÓGICA) ---
-                phaseProgress = (cycleTime - inspireEnd) / (1 - inspireEnd);
-                
-                // La curva cóncava se hace más pronunciada con la severidad del EPOC
-                const epocFactor = Math.pow(phaseProgress, epocSeverity * 3); 
-                currentVol = (1 - epocFactor); // El volumen cae más lento al final
-                
-                // Simulación de flujo para la concavidad (más afectado por severidad)
-                if(phaseProgress < 0.1) {
-                     currentFlow = maxFlowExpir * (1 - Math.pow(phaseProgress * 10, 0.5));
-                } else {
-                     currentFlow = maxFlowExpir * Math.pow(1 - phaseProgress, epocSeverity * 2);
-                }
-                currentFlow = Math.max(0, currentFlow); // Flujo no puede ser negativo en espiración
-
-                uiStatus.innerText = "ESPIRACIÓN (OBSTRUIDA)";
+                // ESPIRACIÓN (Aquí ocurre el EPOC)
+                uiStatus.innerText = severity > 0.5 ? "ESPIRACIÓN OBSTRUIDA" : "ESPIRACIÓN";
                 uiStatus.style.color = "#ff3366";
-            }
+                uiStatus.style.borderColor = "#ff3366";
 
-            // Atrapamiento Aéreo (volumen residual aumentado en EPOC)
-            const minVolScale = 0.8; // Los pulmones nunca se desinflan por completo
-            const maxVolScale = 1.2;
-            const currentOverallScale = THREE.MathUtils.lerp(minVolScale, maxVolScale, currentVol);
-
-            // Deformación del modelo 3D cargado
-            originalPositions.forEach(({ mesh, positions: originalPosArray }) => {
-                const newPositions = mesh.geometry.attributes.position.array;
-                for (let i = 0; i < originalPosArray.length; i += 3) {
-                    const x = originalPosArray[i];
-                    const y = originalPosArray[i + 1];
-                    const z = originalPosArray[i + 2];
-
-                    // Simple expansión/contracción a lo largo de un eje (e.g., y)
-                    // Podrías hacer deformaciones más complejas con morph targets o shaders
-                    newPositions[i] = x * currentOverallScale;
-                    newPositions[i + 1] = y * currentOverallScale * 1.2; // Más expansión vertical
-                    newPositions[i + 2] = z * currentOverallScale;
-                }
-                mesh.geometry.attributes.position.needsUpdate = true;
+                const t = (cyclePosition - inspRatio) / (1 - inspRatio);
                 
-                // Ajustar el color del material para indicar estado de oxigenación/expansión
-                const hue = THREE.MathUtils.lerp(0.0, 0.05, currentVol); // Más rojo cuando más inflado
-                const saturation = THREE.MathUtils.lerp(0.9, 1.0, currentVol);
-                const lightness = THREE.MathUtils.lerp(0.3, 0.5, currentVol);
-                mesh.material.color.setHSL(hue, saturation, lightness);
-                mesh.material.emissiveIntensity = THREE.MathUtils.lerp(0.3, 0.7, currentVol); // Más brillo al inflarse
-            });
+                // Fórmula de colapso EPOC
+                // Si severity es alto, el volumen baja muy lento (Atrapamiento)
+                const collapseFactor = 3 + (severity * 5); 
+                vol = Math.pow(1 - t, severity > 0.3 ? 1.5 : 1); // Volumen cae
+                
+                // Atrapamiento aéreo (Nunca llega a 0 absoluto si hay severidad)
+                vol = vol * (1 - (severity * 0.3)) + (severity * 0.3);
 
-
-            // Actualizar Gráfico
-            const graphScale = 3;
-            cursor.position.set(currentVol * maxVol, currentFlow, 0);
-
-            // Actualizar UI Textos
-            uiVol.innerText = (currentVol * maxVol).toFixed(2);
-            uiFlow.innerText = currentFlow.toFixed(2);
-
-            // Dibujar rastro
-            if (trailIndex < maxTrailPoints) {
-                const positions = trailLine.geometry.attributes.position.array;
-                positions[trailIndex * 3] = cursor.position.x;
-                positions[trailIndex * 3 + 1] = cursor.position.y;
-                positions[trailIndex * 3 + 2] = cursor.position.z;
-                trailIndex++;
-                trailLine.geometry.setDrawRange(0, trailIndex);
-                trailLine.geometry.attributes.position.needsUpdate = true;
+                // Flujo: CAE BRUSCAMENTE (Concavidad)
+                if (t < 0.15) {
+                    // Pico Flujo (PEF)
+                    flow = -6 * Math.sin(t * Math.PI * 3); 
+                } else {
+                    // Caída cóncava
+                    const obst = 1 - Math.pow(t, 1/(1+severity*2)); 
+                    flow = -obst * 4;
+                }
             }
+
+            // --- ACTUALIZAR VISUALES ---
+            
+            // 1. Expansión Pulmones
+            // En EPOC el pulmón está hiperinsuflado (siempre un poco expandido)
+            const baseScale = 1 + (severity * 0.2); 
+            const expansion = baseScale + (vol * 0.3);
+            
+            rightLung.scale.setScalar(expansion);
+            leftLung.scale.setScalar(expansion);
+            
+            // Color cambia con oxigenación simulada
+            const oxColor = new THREE.Color(0x440000).lerp(new THREE.Color(0xff3333), vol);
+            membraneMaterial.color = oxColor;
+
+            // 2. Expansión Árbol Bronquial (Menor que los pulmones)
+            const treeExp = 1 + (vol * 0.1);
+            if(treeRight) treeRight.scale.setScalar(treeExp);
+            if(treeLeft) treeLeft.scale.setScalar(treeExp);
+
+            // 3. Gráfico
+            uiVol.innerText = (vol * maxVol).toFixed(2) + " L";
+            uiFlow.innerText = flow.toFixed(2) + " L/s";
+            
+            const graphX = vol * 3;
+            const graphY = flow * 0.5 + 1.5; // Offset Y
+            cursorMesh.position.set(graphX, graphY, 0);
+            
+            // Rastro del loop actual
+            // (Simplificado para performance)
+            
         }
 
-        // --- CONTROLES DE CÁMARA ---
+        // --- LOOP ---
+        const clock = new THREE.Clock();
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.minDistance = 5;
-        controls.maxDistance = 15;
-        controls.target.set(0, 0.5, 0); // Enfocar un poco más bajo
-
-        // --- LOOP PRINCIPAL ---
-        const clock = new THREE.Clock();
 
         function animate() {
             requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+            const t = clock.getElapsedTime();
 
-            const delta = clock.getDelta();
-            const time = clock.getElapsedTime();
+            updatePhysiology(dt);
 
-            updatePhysics(delta);
-
-            if (lungsModel) {
-                 // Animación sutil de "flotación"
-                lungsModel.position.y = Math.sin(time * 0.3) * 0.05;
-                lungsModel.rotation.y = Math.sin(time * 0.1) * 0.02 + Math.PI / 2;
-            }
+            // Movimiento "Vivo" (Flotación)
+            lungsGroup.position.y = Math.sin(t * 0.5) * 0.1;
+            lungsGroup.rotation.y = Math.sin(t * 0.2) * 0.05;
 
             controls.update();
             composer.render();
         }
 
-        // Resize handler
-        window.addEventListener('resize', onWindowResize, false);
-        function onWindowResize() {
+        window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             composer.setSize(window.innerWidth, window.innerHeight);
-        }
+        });
 
         animate();
 
